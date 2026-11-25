@@ -19,7 +19,7 @@ leakage-free scikit-learn pipelines.
 |---|---|---|
 | Tanish Jain | 25B4244 | Data acquisition, dataset construction, preprocessing experiments (`01_data`, `03a_preprocessing`) |
 | Ruturva Vaghasia | 25B4205 | Model training, tuning, evaluation and interpretation (`03b_modelling`) |
-| Arnav Jain | 25B2715 | Exploratory data analysis, documentation and presentation (`02_EDA`) |
+| Arnav Jain | 25B2704 | Exploratory data analysis, documentation and presentation (`02_EDA`) |
 
 ## Problem
 

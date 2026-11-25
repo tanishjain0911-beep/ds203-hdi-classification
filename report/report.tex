@@ -1,0 +1,256 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\captionsetup{font=small,labelfont=bf}
+\setlength{\parskip}{3pt}
+\setlength{\parindent}{0pt}
+\graphicspath{{../figures/}}
+
+\title{\vspace{-1.5cm}How much of a country's development do everyday indicators reveal?\\[2pt]
+\large DS203 Project: Classification}
+\author{Tanish Jain (25B4244) \quad Ruturva Vaghasia (25B4205) \quad Arnav Jain (25B2704)\\[2pt]
+\small Code and data: \url{https://github.com/tanishjain0911-beep/ds203-hdi-classification}}
+\date{November 2026}
+
+\begin{document}
+\maketitle
+\vspace{-0.6cm}
+
+\section{Introduction}
+The Human Development Index (HDI) from UNDP summarises health, education and income in a single score between
+0 and 1. Building it requires survey and census data, so it is published with a delay. The World Bank, by
+contrast, publishes economic and infrastructure indicators for almost every country each year. We asked whether
+these widely available indicators are enough to place a country in the right development group, and which of
+them matter most.
+
+We use the 2023 HDI to define three classes: \textbf{Low} ($\text{HDI} < 0.550$), \textbf{Medium/High}
+($0.550 \le \text{HDI} < 0.800$) and \textbf{Very High} ($\text{HDI} \ge 0.800$). This grouping was defined for
+the project; it is not UNDP's official four-category scheme. To avoid target leakage, the HDI score and its
+components (life expectancy, years of schooling, GNI per capita) are never used as inputs, and country names and
+ISO codes serve only as identifiers. We compare four classifiers, test whether categorical features and PCA help,
+and read the results as associations, not causal effects.
+
+\section{Methodology}
+\paragraph{Data.} The target is \texttt{hdi\_2023} from the Human Development Report 2025 release
+(\emph{composite indices complete time series}, accessed 23 Nov 2026). The nine predictors are World Development
+Indicators downloaded as CSV files from the World Bank data site (accessed 25 Nov 2026): GDP growth
+(NY.GDP.MKTP.KD.ZG), inflation (FP.CPI.TOTL.ZG), unemployment (SL.UEM.TOTL.ZS), infant mortality
+(SP.DYN.IMRT.IN), electricity access (EG.ELC.ACCS.ZS), internet users (IT.NET.USER.ZS), agriculture and industry
+value added as \% of GDP (NV.AGR.TOTL.ZS, NV.IND.TOTL.ZS) and trade as \% of GDP (NE.TRD.GNFS.ZS). Region comes
+from the World Bank country metadata file included in the same download; aggregates such as ``World'' or income
+groups have no region and were removed. Merging on ISO3 codes matched all 195 UNDP countries, so no manual code
+corrections were needed; 22 World Bank economies (mainly territories such as Puerto Rico and Greenland) have no
+HDI and were excluded. Monaco and DPR Korea have no 2023 HDI, which leaves \textbf{193 countries}: 26 Low,
+93 Medium/High and 74 Very High.
+
+Each indicator uses its 2023 value; if that is missing, the latest value from 2022 or 2021 is taken, never a later
+year, and the year used is stored for every cell. Only 19 of the 1{,}737 predictor values came from this
+look-back window. Missing values were kept for the imputation experiments. We also built \texttt{DominantSector}:
+services share $= 100 - \text{agriculture} - \text{industry}$, and the largest of the three shares gives the
+category (missing if an input is missing or a share is negative). Services dominates in 176 countries, industry in
+8 (oil and mining economies such as Qatar, Kuwait and Libya) and agriculture in 2 (Niger and Chad), with 7 missing.
+
+\paragraph{Transformations.} Inflation and trade have long right tails. Inflation has 19 values beyond the upper
+IQR fence of about 18\%, led by Lebanon (221\%), Sudan (139\%) and Argentina (133\%); trade reaches 403\% of GDP in
+Luxembourg and 353\% in Hong Kong. These are real values and no percentage lies outside 0--100, so nothing was
+removed. Both features get a sign-preserving log, $\operatorname{sign}(x)\ln(1+|x|)$, because inflation can be
+negative. The formula has no learned parameters, so applying it before the split cannot leak information.
+
+\paragraph{Split and preprocessing.} Countries are independent observations, so we used a stratified 60/20/20
+split with \texttt{random\_state = 42}: 115 training, 39 validation and 39 test countries, with 16, 5 and 5 Low
+countries. All learned steps sit inside a scikit-learn \texttt{Pipeline} built around a \texttt{ColumnTransformer},
+so they are refitted on the training part of every cross-validation fold and never see validation or test data.
+Numerical columns are mean-imputed (chosen in Section~3.2) and standardised; categorical columns get an explicit
+``Missing'' level and are one-hot encoded with unseen categories ignored, giving 20 columns in total.
+
+\paragraph{Models and tuning.} We trained a majority-class baseline, multinomial logistic regression (L2 penalty,
+\texttt{max\_iter = 5000}), a decision tree and a random forest of 300 trees. Hyperparameters were chosen with
+\texttt{GridSearchCV} using stratified 5-fold cross-validation on the training set, scored by macro F1 so that the
+small Low class counts as much as the others. The grids were $C \in \{0.01, 0.1, 1, 10, 100\}$; tree depth
+$\in \{2, 3, 4, 5, \text{none}\}$ and minimum leaf size $\in \{1, 3, 5\}$; forest depth $\in \{3, 5, \text{none}\}$
+and leaf size $\in \{1, 3\}$. Imputation, PCA and feature sets were compared on the same folds with default model
+settings, before tuning. The validation set was used only to compare the tuned models. Finally, each model was
+refitted on training plus validation data (154 countries) and evaluated once on the test set; no choice was made
+using the test set.
+
+\section{Experiments}
+\subsection{Exploratory analysis}
+Missing values are uneven across features and classes (Figure~\ref{fig:missing}). Trade is missing for 11.9\% of
+countries, inflation for 7.8\% and unemployment for 7.3\%, while electricity access and region are complete. Gaps
+cluster in the least developed countries: 35\% of Low countries have at least one missing indicator, against 27\%
+of Medium/High and 12\% of Very High, and a Low country averages 1.12 missing values against 0.22 for Very High.
+Unemployment is the one exception, with no gaps in the Low class. The most incomplete countries are
+conflict-affected (Eritrea, Yemen, South Sudan, Somalia) or very small (Tuvalu, Nauru). Missingness is therefore
+systematic, and imputed values for Low countries are based mostly on data from richer countries.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\textwidth]{missingness.png}
+\vspace{-6pt}
+\caption{Percentage of missing values by feature (left) and within each HDI class (right).}
+\label{fig:missing}
+\end{figure}
+
+Health and infrastructure indicators separate the classes most clearly. From Low to Medium/High to Very High,
+median infant mortality falls from 45.7 to 17.7 to 4.0 per 1{,}000 births, internet use rises from 24\% to 70\% to
+92\%, electricity access from 45\% to 99\% to 100\%, and agriculture's share of GDP falls from 29\% to 10\% to 2\%.
+Trade is higher in Very High countries (median 107\% against 55\% for Low), GDP growth is slightly higher in Low
+countries (4.3\% against 2.0\%), and unemployment and industry share show no clear ordering. Six predictor pairs
+have $|r| \ge 0.5$, all within one group: electricity and internet ($r = 0.84$), infant mortality and internet
+($-0.83$), internet and agriculture ($-0.81$), infant mortality and electricity ($-0.79$), infant mortality and
+agriculture ($0.72$), and electricity and agriculture ($-0.66$). These four indicators largely measure the same
+level of development. Among the categorical variables, 22 of the 26 Low countries are in Sub-Saharan Africa and
+the other 4 in the Middle East \& North Africa, 44 of 51 Europe \& Central Asia countries are Very High, and all
+six South Asian countries are Medium/High.
+
+\subsection{Preprocessing choices and PCA}
+Imputation made little difference. Mean imputation without indicator columns gave the best cross-validated macro
+F1 for both logistic regression ($0.839 \pm 0.068$) and the random forest ($0.890 \pm 0.061$). Median imputation
+scored 0.818 and 0.875. A missingness indicator is a 0/1 column that marks an imputed value, so the model can use
+``this value was not reported'' as a signal; given the pattern above this is plausible, but the indicators lowered
+both models (0.797 and 0.881), probably because the extra, mostly-zero columns add noise with only 115 training
+countries. All gaps were within one standard deviation, so we kept mean imputation without indicators.
+
+PCA was fitted on the preprocessed training features. PC1 explains 38.8\% of the variance and seven of the 20
+components are needed for 90\% (Figure~\ref{fig:pca}). PC1 is a development axis, with loadings on internet use
+($+0.48$), electricity ($+0.46$), infant mortality ($-0.46$) and agriculture share ($-0.45$); PC2 mainly reflects
+short-run macro conditions (GDP growth $+0.69$, inflation $-0.41$). Along PC1 the Low class separates clearly,
+while Medium/High and Very High overlap. Keeping 2 or 3 components raised logistic regression to 0.857 in
+cross-validation, within one standard deviation of no PCA, while every PCA setting hurt the random forest
+(0.82--0.87 against 0.890), since trees split best on the original features. We therefore built the final models
+without PCA, which also keeps them interpretable in terms of the original indicators.
+
+\begin{figure}[h]
+\centering
+\begin{subfigure}{0.49\textwidth}\includegraphics[width=\linewidth]{pca_explained_variance.png}\end{subfigure}\hfill
+\begin{subfigure}{0.40\textwidth}\includegraphics[width=\linewidth]{pca_scatter.png}\end{subfigure}
+\vspace{-6pt}
+\caption{PCA on the preprocessed training features. Left: explained variance per component and cumulative.
+Right: training countries on PC1 and PC2.}
+\label{fig:pca}
+\end{figure}
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{lcc}
+\toprule
+Features & Logistic regression & Random forest\\
+\midrule
+Numerical only & 0.846 & 0.888\\
+Categorical only (region + sector) & 0.512 & 0.545\\
+Numerical + region & 0.837 & 0.890\\
+Numerical + DominantSector & 0.846 & 0.895\\
+Combined & 0.839 & 0.890\\
+\bottomrule
+\end{tabular}
+\caption{Cross-validated macro F1 for different feature sets (training set, 5 folds).}
+\label{tab:features}
+\end{table}
+
+The numerical indicators carry almost all of the signal (Table~\ref{tab:features}). Region and sector alone reach
+about 0.5, mostly because region picks out Sub-Saharan Africa. Adding either to the numerical features changes
+macro F1 by at most 0.01, so neither region nor the engineered sector improves prediction in a meaningful way,
+which fits the sector being almost always ``Services'' and derived from shares already in the model. We kept the
+combined set because the differences are within $\pm0.01$ and it lets us discuss region.
+
+\subsection{Model selection}
+\begin{table}[h]
+\centering\small
+\begin{tabular}{lccl}
+\toprule
+Model & CV macro F1 & Val.\ macro F1 & Chosen settings\\
+\midrule
+Majority baseline & $0.216 \pm 0.000$ & 0.218 & predicts Medium/High\\
+Logistic regression & $0.849 \pm 0.094$ & 0.799 & $C = 100$\\
+Decision tree & $0.801 \pm 0.071$ & 0.703 & depth 4, min.\ leaf 3\\
+Random forest & $0.895 \pm 0.074$ & 0.784 & depth 5, min.\ leaf 1\\
+\bottomrule
+\end{tabular}
+\caption{Cross-validation on the training set (mean $\pm$ SD over 5 folds) and validation macro F1, combined
+features.}
+\label{tab:cv}
+\end{table}
+
+All three models are far above the baseline (Table~\ref{tab:cv}). The random forest led in cross-validation, but
+its margin over logistic regression (0.046) is smaller than the fold-to-fold standard deviation, and on the
+validation set logistic regression was slightly ahead. With about 23 countries per fold and three or four Low
+countries in each, this ranking is not reliable. Logistic regression chose $C = 100$, the weakest regularisation
+in the grid, so it is close to an unregularised multinomial model.
+
+\subsection{Test-set results}
+Logistic regression achieved the best macro F1 and balanced accuracy on the test set (both 0.708), while the
+random forest had the highest accuracy (0.821) and an almost perfect Very High class (F1 0.97)
+(Table~\ref{tab:test}). The Low class is the weak point: logistic regression found two of the five Low test
+countries, the forest one and the tree none. One country is worth 2.6 points of accuracy, so the test ranking is
+fragile, and all scores are below the cross-validation estimates.
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{lcccccc}
+\toprule
+ & & Balanced & Macro & \multicolumn{3}{c}{F1 per class}\\
+\cmidrule(lr){5-7}
+Model & Accuracy & accuracy & F1 & Low & Med/High & Very High\\
+\midrule
+Majority baseline & 0.487 & 0.333 & 0.218 & 0.00 & 0.66 & 0.00\\
+Logistic regression & 0.795 & \textbf{0.708} & \textbf{0.708} & 0.40 & 0.79 & 0.93\\
+Decision tree & 0.667 & 0.512 & 0.497 & 0.00 & 0.72 & 0.77\\
+Random forest & \textbf{0.821} & 0.676 & 0.682 & 0.25 & 0.83 & 0.97\\
+\bottomrule
+\end{tabular}
+\caption{Results on the 39 held-out test countries (5 Low, 19 Medium/High, 15 Very High).}
+\label{tab:test}
+\end{table}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{confusion_matrices.png}
+\vspace{-14pt}
+\caption{Confusion matrices on the test set (rows: true class; columns: predicted class).}
+\label{fig:cm}
+\end{figure}
+
+Errors are almost all between neighbouring classes (Figure~\ref{fig:cm}); logistic regression and the forest never
+confuse Low with Very High, and only the tree puts two Low countries in Very High. Six of the forest's seven
+mistakes have an HDI between 0.503 and 0.582, around the 0.550 cut-off: Eritrea, Sudan, Djibouti and Gambia are
+Low but were predicted Medium/High, and Tanzania (0.555) and Uganda (0.582) went the other way. Saint Kitts and
+Nevis (0.840) is the only Very High error. Countries this close to a threshold have indicator profiles like the
+neighbouring class, so these errors reflect the hard cut-off as much as the model.
+
+\subsection{Which features matter}
+Permutation importance for the random forest, computed out of fold on the training and validation data because
+the test set has only five Low countries, ranks electricity access first (macro F1 drops by 0.171 when it is
+shuffled), then infant mortality (0.096), internet use (0.073) and agriculture share (0.048). Region contributes
+0.026, and \texttt{DominantSector}, unemployment, industry, growth, inflation and trade 0.010 or less.
+Logistic-regression coefficients (standardised features) point the same way: infant mortality pushes towards Low
+($+3.01$) and strongly away from Very High ($-5.28$), agriculture share behaves similarly, and internet use pushes
+towards Very High ($+3.61$). Because these predictors are highly correlated and the model is nearly unregularised,
+the way the weight is split between them is not stable, and single coefficients should not be read as separate
+effects. Correlation also lowers permutation importance, since the forest can partly fall back on a correlated
+feature when one is shuffled.
+
+\paragraph{Limitations.} Only 26 countries are Low and 5 are in the test set, so one country moves Low recall by
+20 points; we used stratified splits, macro F1 and balanced accuracy for this reason, and class weighting is left
+for future work. With 193 countries, cross-validation standard deviations (0.07--0.09) are as large as the gaps
+between models. Missing data is concentrated in the poorest countries, where mean imputation pulls values towards
+the sample average and may blur the Low class. Nineteen values come from 2021--22 while the HDI is from 2023, and
+annual indicators such as Sudan's $-29\%$ growth reflect short-run shocks rather than long-run development.
+Finally, these are associations: electricity access and low infant mortality predict a high HDI, but both are also
+outcomes of development and correlate with the excluded income and education components, so changing one
+indicator would not necessarily change a country's class.
+
+\paragraph{Conclusion.} Four health and infrastructure indicators (electricity access, infant mortality, internet
+use and agriculture share) place most countries in the right group: logistic regression and the random forest
+reach 79--82\% test accuracy against 49\% for the baseline, with cross-validated macro F1 of 0.85--0.90. Region,
+the engineered sector feature and PCA add little. The Low class remains the hardest, because it is small,
+data-poor and close to the cut-off.
+
+\end{document}
