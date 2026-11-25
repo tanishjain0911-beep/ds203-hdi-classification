@@ -144,17 +144,17 @@ cross-validation of the training set:
 \item a random forest of 300 trees, maximum depth $\in \{3, 5, \text{none}\}$, minimum leaf size $\in \{1, 3\}$.
 \end{itemize}
 The selection criterion is macro F1, which weights the small Low class equally with the other two. The imputation,
-PCA and feature-set comparisons use the same folds with default model settings and were made before tuning. The
-validation set only compares the tuned models. Each model is then refitted on training plus validation data (154
-countries) and evaluated once on the test set with accuracy, balanced accuracy, macro F1, per-class F1 and a
-confusion matrix. No modelling decision uses the test set.
+PCA and feature-set comparisons use the same folds with default model settings and were made before tuning. We use
+the validation set only to compare the tuned models, then refit each model on training plus validation data (154
+countries) and evaluate it once on the test set with accuracy, balanced accuracy, macro F1, per-class F1 and a
+confusion matrix. The test set plays no part in any modelling decision.
 
 \section{Experiments}
 \subsection{Missing data}
 Trade is the most incomplete indicator (11.9\% missing), followed by inflation (7.8\%) and unemployment (7.3\%);
 electricity access and region are complete (Figure~\ref{fig:missing}). Gaps are concentrated in the least developed
-countries. 35\% of Low countries have at least one missing indicator, against 27\% of Medium/High and 12\% of Very
-High countries, and a Low country has 1.12 missing values on average against 0.22 for a Very High country.
+countries: 35\% of Low countries have at least one missing indicator, against 27\% of Medium/High and 12\% of
+Very High countries, and a Low country has 1.12 missing values on average against 0.22 for a Very High country.
 Unemployment is the exception, with no gaps in the Low class. The most incomplete records belong to
 conflict-affected countries (Eritrea, Yemen, South Sudan, Somalia) and to very small states (Tuvalu, Nauru). The
 data are therefore not missing at random, and imputed values for Low countries come largely from richer countries.
@@ -174,7 +174,7 @@ unemployment and the industry share show no clear order. The same four indicator
 each other: all six pairs with $|r| \ge 0.5$ come from this group, the strongest being electricity and internet
 ($r = 0.84$) and infant mortality and internet ($-0.83$). They largely measure one underlying level of development.
 
-Region is also related to the class. 22 of the 26 Low countries are in Sub-Saharan Africa and the other 4 in the
+Region is also related to the class: 22 of the 26 Low countries are in Sub-Saharan Africa and the other 4 in the
 Middle East \& North Africa, 44 of the 51 countries in Europe \& Central Asia are Very High, and all six South Asian
 countries are Medium/High.
 
@@ -258,8 +258,8 @@ validation set.}
 
 \subsection{Test-set results}
 Logistic regression has the best test macro F1 and balanced accuracy (both 0.708), and the random forest the best
-accuracy (0.821) with an almost perfect Very High class (F1 0.97), as Table~\ref{tab:test} shows. The Low class is
-the weak point: logistic regression finds two of the five Low test countries, the forest one and the tree none.
+accuracy (0.821) with an almost perfect Very High class (F1 0.97), as Table~\ref{tab:test} shows. Recall on the
+Low class is poor. Logistic regression finds two of the five Low test countries, the forest one and the tree none.
 One country is worth 2.6 percentage points of accuracy, so the test ranking depends on a few countries, and all
 test scores are below the cross-validation estimates.
 
@@ -321,7 +321,7 @@ changing one indicator would not necessarily change a country's class.
 Electricity access, infant mortality, internet use and the agriculture share of GDP are enough to place most
 countries in the correct category. Logistic regression and the random forest reach 79\% and 82\% test accuracy,
 against 49\% for the majority baseline, with cross-validated macro F1 between 0.85 and 0.90. Region, the engineered
-sector feature and PCA add little to these four indicators. The Low class is the hardest to predict: it is small,
-has the most missing data and contains many countries close to the threshold.
+sector feature and PCA add little to these four indicators. The Low class is the hardest to predict. It has only 26
+countries and the most missing data, and 12 of them have an HDI within 0.05 of the 0.550 threshold.
 
 \end{document}
