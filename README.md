@@ -9,7 +9,7 @@ leakage-free scikit-learn pipelines.
 
 | | |
 |---|---|
-| **Report** | [`report/report.pdf`](report/report.pdf) |
+| **Report** | [`report/DS203_HDI_Classification_Report.pdf`](report/DS203_HDI_Classification_Report.pdf) |
 | **Video (10 min)** | _link to be added_ |
 | **Dataset** | [`data/hdi_wdi_2023.csv`](data/hdi_wdi_2023.csv) (193 countries), described in [`data/data_dictionary.md`](data/data_dictionary.md) |
 
@@ -59,7 +59,7 @@ schooling, and GNI per capita. Country names and ISO3 codes are used only as ide
 │   ├── 03a_preprocessing.ipynb   split, pipeline, imputation, PCA and feature-set experiments
 │   └── 03b_modelling.ipynb       baseline, LR, decision tree, random forest; test evaluation; interpretation
 ├── figures/                      all plots, written by the notebooks
-└── report/                       LaTeX report (report.pdf)
+└── report/                       LaTeX report (DS203_HDI_Classification_Report.tex and .pdf)
 ```
 
 ## How to run
