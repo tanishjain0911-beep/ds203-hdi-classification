@@ -6,12 +6,12 @@ Built in `notebooks/01_data.ipynb`. The year used for every value is in `feature
 ## Sources
 - **Target (HDI):** UNDP Human Development Report 2025 release, *Composite indices complete time series*, column `hdi_2023`.
   https://hdr.undp.org/sites/default/files/2025_HDR/HDR25_Composite_indices_complete_time_series.csv
-- **Predictors:** World Bank World Development Indicators via the World Bank API (https://api.worldbank.org/v2), accessed 23 Nov 2026.
-- **Region:** World Bank country metadata API (`/v2/country`).
+- **Predictors:** World Bank World Development Indicators, downloaded as CSV from https://data.worldbank.org/indicator/ (search the code → Download → CSV), accessed 25 Nov 2026. Saved as `raw/wb_<code>.csv`.
+- **Region:** the `Metadata_Country` CSV included in the same World Bank download, saved as `raw/wb_country_metadata.csv`.
 
 ## Construction rules
 - **Year rule:** use the 2023 value; if missing, the most recent value from 2022, then 2021. No value after 2023 is used. If none exists, the value stays missing (NaN) for the imputation step.
-- **Aggregates removed:** HDR rows with ISO3 codes starting "ZZ" and World Bank entries with region "Aggregates".
+- **Aggregates removed:** HDR rows with ISO3 codes starting "ZZ" and World Bank entries with an empty region (aggregates such as World or income groups).
 - **Matching:** merged on ISO3 codes. All 195 HDR countries matched; no manual corrections were needed. 22 World Bank economies without an HDI (territories) are excluded.
 - **Dropped:** Monaco and DPR Korea (no 2023 HDI, so no label).
 - **Missing values are kept** (not imputed here). Imputation happens later, inside the model pipeline, on training data only.
